@@ -129,18 +129,15 @@ jobs:
             echo "SERIAL_TELNET_PORT=${PORT}"
           } >> "$GITHUB_ENV"
 
-          cat > /tmp/qemu-serial-connect.sh <<EOF
+          cat > /tmp/qemu-serial-connect.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
-          PLATFORM_VALUE="${P}"
-          SERIAL_TELNET_PORT_VALUE="${PORT}"
+
           PIDFILE="out/qemu.pid"
           LOGFILE="out/qemu.log"
 
-          if [[ -z "${PLATFORM_VALUE}" ]]; then
-            echo "PLATFORM not set" >&2
-            exit 1
-          fi
+          PLATFORM_VALUE="${PLATFORM:?PLATFORM not set}"
+          SERIAL_TELNET_PORT_VALUE="${SERIAL_TELNET_PORT:-4321}"
 
           start_qemu() {
             if [[ -f "${PIDFILE}" ]] && kill -0 "$(cat "${PIDFILE}")" 2>/dev/null; then
@@ -148,7 +145,9 @@ jobs:
               return
             fi
             echo "Launching QEMU (platform=${PLATFORM_VALUE}, telnet port=${SERIAL_TELNET_PORT_VALUE})"
-            PLATFORM="${PLATFORM_VALUE}" SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT_VALUE}" bash scripts/run_qemu.sh > "${LOGFILE}" 2>&1 & echo \$! > "${PIDFILE}"
+            PLATFORM="${PLATFORM_VALUE}" SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT_VALUE}" \
+              bash scripts/run_qemu.sh > "${LOGFILE}" 2>&1 &
+            echo $! > "${PIDFILE}"
           }
 
           wait_qemu() {
@@ -168,12 +167,13 @@ jobs:
           wait_qemu
           exec telnet 127.0.0.1 "${SERIAL_TELNET_PORT_VALUE}"
           EOF
-          # Strip YAML indentation from the heredoc to keep a valid shebang
-          sed -i 's/^          //' /tmp/qemu-serial-connect.sh
+
           chmod +x /tmp/qemu-serial-connect.sh
-          echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > /tmp/qemu-tmate.conf
-          cp /tmp/qemu-tmate.conf ~/.tmate.conf
-          # Fallback: force shell to exec the script when a tmate session starts
+          cat > ~/.tmate.conf <<'EOF'
+          set -g default-command "/tmp/qemu-serial-connect.sh"
+          EOF
+
+          # Optional fallback: if default-command isn't honored in some shells
           echo '[[ -t 0 && -z "${TMATE_QEMU_DONE:-}" ]] && export TMATE_QEMU_DONE=1 && exec /tmp/qemu-serial-connect.sh' >> ~/.bashrc
 
       - name: Interactive session (tmate -> QEMU serial)
