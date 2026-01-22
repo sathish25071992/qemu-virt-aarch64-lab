@@ -31,3 +31,7 @@ PLATFORM=virt-cortex-a53 bash scripts/run_qemu.sh
 - To run on a self-hosted machine, set repository variable `RUNNER_LABEL` to your runner label (for example `self-hosted`); both CI jobs will pick it up.
 - The manual workflow also exposes a `runner_label` input so you can override the runner per dispatch.
 - Ensure the chosen runner has the apt packages listed in the workflows pre-installed or installable with `sudo apt-get`.
+
+## Manual workflow tips
+- Manual run starts QEMU with its serial console exposed via telnet on `serial_telnet_port` (default `4321`), then opens a tmate session that auto-runs telnet. When you connect to the tmate session you land directly in the serial console; exiting telnet ends the tmate session and the workflow moves on.
+- Use `tmate_timeout_minutes` to control how long the tmate session stays up before auto-continuing (default 20).

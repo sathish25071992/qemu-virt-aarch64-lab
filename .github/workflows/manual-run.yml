@@ -24,6 +24,16 @@ on:
         required: false
         default: ""
         type: string
+      serial_telnet_port:
+        description: "Port for QEMU serial telnet server"
+        required: true
+        default: 4321
+        type: number
+      tmate_timeout_minutes:
+        description: "How long to keep the tmate session open before auto-continuing"
+        required: true
+        default: 20
+        type: number
 
 jobs:
   run:
@@ -35,7 +45,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            expect cpio gzip tar \
+            expect cpio gzip tar telnet \
             libglib2.0-0 libpixman-1-0 zlib1g
 
       # Fetch latest successful CI run artifact from SAME BRANCH
@@ -97,7 +107,7 @@ jobs:
             git build-essential ninja-build pkg-config \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             flex bison bc libssl-dev libncurses-dev \
-            python3 python3-yaml \
+            python3 python3-yaml telnet \
             libglib2.0-dev libpixman-1-dev zlib1g-dev \
             expect cpio gzip curl tar xz-utils
 
@@ -108,18 +118,50 @@ jobs:
         run: |
           bash scripts/build_all.sh
 
-      - name: Interactive session (tmate)
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-
-      - name: Run QEMU (foreground, interactive console)
+      - name: Start QEMU (telnet serial, background)
         env:
           PLATFORM: ${{ inputs.platform }}
+          SERIAL_TELNET_PORT: ${{ inputs.serial_telnet_port }}
         run: |
           set -euo pipefail
           mkdir -p out
-          bash -lc "PLATFORM=${PLATFORM} bash scripts/run_qemu.sh" 2>&1 | tee out/qemu.log
+          echo "Starting QEMU with telnet serial on port ${SERIAL_TELNET_PORT}"
+          bash -lc "PLATFORM=${PLATFORM} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT} bash scripts/run_qemu.sh > out/qemu.log 2>&1 & echo \$! > out/qemu.pid"
+          sleep 2
+          if ! kill -0 "$(cat out/qemu.pid)" 2>/dev/null; then
+            echo "QEMU failed to start (pid file missing or process not running)" >&2
+            cat out/qemu.log || true
+            exit 1
+          fi
+
+      - name: Prepare auto-connect tmate (telnet to QEMU serial)
+        env:
+          SERIAL_TELNET_PORT: ${{ inputs.serial_telnet_port }}
+        run: |
+          cat > ~/.tmate.conf <<EOF
+set -g default-command "bash -lc 'telnet 127.0.0.1 ${SERIAL_TELNET_PORT}'"
+EOF
+
+      - name: Interactive session (tmate -> QEMU serial)
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+        timeout-minutes: ${{ inputs.tmate_timeout_minutes }}
+
+      - name: Stop QEMU
+        if: always()
+        run: |
+          set -euo pipefail
+          if [[ -f out/qemu.pid ]]; then
+            PID="$(cat out/qemu.pid)"
+            if kill -0 "${PID}" 2>/dev/null; then
+              kill "${PID}" || true
+              sleep 2
+              if kill -0 "${PID}" 2>/dev/null; then
+                kill -9 "${PID}" || true
+              fi
+            fi
+          fi
 
       - name: Upload qemu log
         if: always()

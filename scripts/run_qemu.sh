@@ -8,6 +8,8 @@ CPU="$(yplat "${PLATFORM}" cpu)"
 MACHINE="$(yplat "${PLATFORM}" machine)"
 SMP="$(yplat "${PLATFORM}" smp)"
 MEM_MB="$(yplat "${PLATFORM}" mem_mb)"
+SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT:-}"
+SERIAL_TELNET_HOST="${SERIAL_TELNET_HOST:-127.0.0.1}"
 
 QEMU_BIN="${BUILD_DIR}/qemu/qemu-system-aarch64"
 VMLINUX="${IMG_DIR}/Image"
@@ -31,10 +33,17 @@ if ! "${QEMU_BIN}" -cpu help | grep -qE "(^|[[:space:]])${CPU}([[:space:]]|$)"; 
   exit 2
 fi
 
-exec "${QEMU_BIN}" \
-  -M "${MACHINE}" -cpu "${CPU}" -smp "${SMP}" -m "${MEM_MB}" \
-  -nographic \
-  -kernel "${VMLINUX}" \
-  -initrd "${INITRAMFS}" \
-  -append "console=ttyAMA0 earlycon=pl011,0x09000000 rdinit=/init panic=-1" \
+QEMU_ARGS=(
+  -M "${MACHINE}" -cpu "${CPU}" -smp "${SMP}" -m "${MEM_MB}"
+  -nographic
+  -kernel "${VMLINUX}"
+  -initrd "${INITRAMFS}"
+  -append "console=ttyAMA0 earlycon=pl011,0x09000000 rdinit=/init panic=-1"
   -no-reboot
+)
+
+if [[ -n "${SERIAL_TELNET_PORT}" ]]; then
+  QEMU_ARGS+=(-serial "telnet:${SERIAL_TELNET_HOST}:${SERIAL_TELNET_PORT},server,nowait")
+fi
+
+exec "${QEMU_BIN}" "${QEMU_ARGS[@]}"
