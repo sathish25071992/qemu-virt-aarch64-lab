@@ -80,14 +80,17 @@ if [[ -f "${FRAG}" ]]; then
   done < "${FRAG}"
 fi
 
-# Resolve NEW options non-interactively (defaults)
-( yes "" | make -C "${BUSYBOX_SRC}" O="${BUSYBOX_BUILD}" oldconfig ) || {
-  rc=$?
-  # yes may get SIGPIPE => 141; ignore that
-  if [[ "$rc" != "141" ]]; then
-    exit "$rc"
-  fi
-}
+# Resolve NEW options non-interactively (defaults).
+# With `set -o pipefail`, `yes` may get SIGPIPE (rc=141) after make stops reading.
+# Treat 141 as success.
+set +e
+yes "" | make -C "${BUSYBOX_SRC}" O="${BUSYBOX_BUILD}" oldconfig
+rc=$?
+set -e
+
+if [[ "$rc" -ne 0 && "$rc" -ne 141 ]]; then
+  exit "$rc"
+fi
 
 log "Building BusyBox..."
 make -C "${BUSYBOX_SRC}" O="${BUSYBOX_BUILD}" -j"$(nproc)"
