@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           mkdir -p out/artifacts
           tar -C out -czf "out/artifacts/common-${GITHUB_SHA}.tgz" \
-            build/qemu/qemu-system-aarch64 \
+            runtime/ \
             images/Image \
             images/rootfs.cpio.gz
 
