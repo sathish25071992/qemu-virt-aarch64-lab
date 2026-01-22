@@ -122,7 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          cat > /tmp/qemu-serial-connect.sh <<'EOF'
+          cat > /tmp/qemu-serial-connect.sh <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
           PLATFORM="${PLATFORM}"
@@ -157,7 +157,8 @@ jobs:
           exec telnet 127.0.0.1 "${SERIAL_TELNET_PORT}"
           EOF
           chmod +x /tmp/qemu-serial-connect.sh
-          echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > ~/.tmate.conf
+          echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > /tmp/qemu-tmate.conf
+          echo "TMATE_CONFIG=/tmp/qemu-tmate.conf" >> "$GITHUB_ENV"
 
       - name: Interactive session (tmate -> QEMU serial)
         uses: mxschmitt/action-tmate@v3
