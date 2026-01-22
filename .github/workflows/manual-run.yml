@@ -122,11 +122,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          cat > /tmp/qemu-serial-connect.sh <<'EOF'
+          PORT="${SERIAL_TELNET_PORT:-4321}"
+          cat > /tmp/qemu-serial-connect.sh <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
           PLATFORM_VALUE="${PLATFORM}"
-          SERIAL_TELNET_PORT_VALUE="${SERIAL_TELNET_PORT}"
+          SERIAL_TELNET_PORT_VALUE="${PORT}"
           PIDFILE="out/qemu.pid"
           LOGFILE="out/qemu.log"
 
@@ -141,7 +142,7 @@ jobs:
               return
             fi
             echo "Launching QEMU (platform=${PLATFORM_VALUE}, telnet port=${SERIAL_TELNET_PORT_VALUE})"
-            bash -lc "PLATFORM=${PLATFORM_VALUE} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT_VALUE} bash scripts/run_qemu.sh > ${LOGFILE} 2>&1 & echo \$! > ${PIDFILE}"
+            bash -lc "PLATFORM=${PLATFORM_VALUE} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT_VALUE} bash scripts/run_qemu.sh > ${LOGFILE} 2>&1 & echo \\$! > ${PIDFILE}"
           }
 
           wait_qemu() {
