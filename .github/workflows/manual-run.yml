@@ -1,0 +1,57 @@
+name: Manual run (interactive QEMU console)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform name"
+        required: true
+        default: "virt-cortex-a53"
+        type: choice
+        options:
+          - virt-cortex-a53
+          - virt-cortex-a72
+          - virt-neoverse-n1
+          - virt-cortex-a710
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git build-essential ninja-build pkg-config \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            flex bison bc libssl-dev libncurses-dev \
+            python3 python3-yaml \
+            libglib2.0-dev libpixman-1-dev zlib1g-dev
+
+      - name: Build all
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          bash scripts/build_all.sh
+
+      - name: Start QEMU in background (log to out/qemu.log)
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          nohup bash -lc "PLATFORM=${PLATFORM} bash scripts/run_qemu.sh" > out/qemu.log 2>&1 &
+          sleep 2
+          tail -n 120 out/qemu.log || true
+
+      - name: Interactive session (tmate)
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
+      - name: Upload qemu log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-log-${{ inputs.platform }}
+          path: out/qemu.log

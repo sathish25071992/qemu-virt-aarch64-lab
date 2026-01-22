@@ -1,0 +1,35 @@
+#!/usr/bin/expect -f
+set timeout 120
+
+# args: PLATFORM
+set platform [lindex $argv 0]
+if {$platform eq ""} { set platform "virt-cortex-a53" }
+
+# Spawn QEMU and capture console
+spawn bash -lc "PLATFORM=$platform bash scripts/run_qemu.sh"
+
+# Wait for initramfs message and shell prompt-ish behavior
+expect {
+  -re "Booted initramfs\\." {}
+  timeout { puts "FAIL: did not reach initramfs"; exit 1 }
+}
+
+# Send a couple commands
+send -- "uname -a\n"
+expect {
+  -re "Linux" {}
+  timeout { puts "FAIL: uname output not seen"; exit 1 }
+}
+
+send -- "echo OK\n"
+expect {
+  -re "OK" {}
+  timeout { puts "FAIL: did not see OK"; exit 1 }
+}
+
+# power off
+send -- "poweroff\n"
+expect {
+  eof {}
+  timeout { puts "WARN: poweroff did not exit, forcing"; exit 0 }
+}

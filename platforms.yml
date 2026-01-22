@@ -1,0 +1,24 @@
+aarch64:
+  - name: virt-cortex-a53
+    machine: virt
+    cpu: cortex-a53
+    smp: 2
+    mem_mb: 1024
+
+  - name: virt-cortex-a72
+    machine: virt
+    cpu: cortex-a72
+    smp: 2
+    mem_mb: 1024
+
+  - name: virt-neoverse-n1
+    machine: virt
+    cpu: neoverse-n1
+    smp: 2
+    mem_mb: 1024
+
+  - name: virt-cortex-a710
+    machine: virt
+    cpu: cortex-a710
+    smp: 2
+    mem_mb: 1024

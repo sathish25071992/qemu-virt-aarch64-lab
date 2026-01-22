@@ -1,0 +1,58 @@
+name: CI build + boot smoke test (aarch64 virt)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - virt-cortex-a53
+          - virt-cortex-a72
+          - virt-neoverse-n1
+          - virt-cortex-a710
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git build-essential ninja-build pkg-config \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            flex bison bc libssl-dev libncurses-dev \
+            python3 python3-yaml expect \
+            libglib2.0-dev libpixman-1-dev zlib1g-dev
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: |
+            out/cache
+            out/build
+          key: ${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('versions.yml') }}
+
+      - name: Build all
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          bash scripts/build_all.sh
+
+      - name: Smoke test boot
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          expect -f scripts/smoke_test.expect "${PLATFORM}" | tee out/serial-${PLATFORM}.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.platform }}
+          path: |
+            out/serial-*.log
