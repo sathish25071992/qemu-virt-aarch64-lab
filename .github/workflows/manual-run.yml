@@ -128,9 +128,19 @@ jobs:
           set -euo pipefail
           mkdir -p out
           echo "Starting QEMU with telnet serial on port ${SERIAL_TELNET_PORT}"
+          # Launch QEMU in a subshell and capture its PID
           bash -lc "PLATFORM=${PLATFORM} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT} bash scripts/run_qemu.sh > out/qemu.log 2>&1 & echo \$! > out/qemu.pid"
-          sleep 2
-          if ! kill -0 "$(cat out/qemu.pid)" 2>/dev/null; then
+
+          # Wait for QEMU to come up (pid file + running process)
+          for _ in {1..10}; do
+            if [[ -s out/qemu.pid ]] && kill -0 "$(cat out/qemu.pid)" 2>/dev/null; then
+              echo "QEMU running with PID $(cat out/qemu.pid)"
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ ! -s out/qemu.pid ]] || ! kill -0 "$(cat out/qemu.pid)" 2>/dev/null; then
             echo "QEMU failed to start (pid file missing or process not running)" >&2
             cat out/qemu.log || true
             exit 1
