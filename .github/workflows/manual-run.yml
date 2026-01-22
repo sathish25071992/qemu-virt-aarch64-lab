@@ -13,6 +13,12 @@ on:
           - virt-cortex-a72
           - virt-neoverse-n1
           - virt-cortex-a710
+      rebuild:
+        description: "Force rebuild even if bundle exists"
+        required: true
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 jobs:
   run:
@@ -20,7 +26,66 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps
+      - name: Install runtime deps (minimal)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            expect cpio gzip tar \
+            libglib2.0-0 libpixman-1-0 zlib1g
+
+      # Fetch latest successful CI run artifact from SAME BRANCH
+      - name: Install gh
+        if: ${{ inputs.rebuild != 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Download latest common bundle from same branch (if available)
+        if: ${{ inputs.rebuild != 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/artifacts
+
+          echo "Looking for latest successful CI run on branch: ${BRANCH}"
+
+          RUN_ID="$(gh run list \
+            --workflow "CI build common + boot smoke test matrix (aarch64 virt)" \
+            --branch "${BRANCH}" \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+
+          if [[ -z "${RUN_ID}" || "${RUN_ID}" == "null" ]]; then
+            echo "No successful CI run found on branch ${BRANCH}"
+            exit 1
+          fi
+
+          echo "Using CI run id: ${RUN_ID}"
+          gh run download "${RUN_ID}" -n common-bundle -D out/artifacts
+
+      - name: Unpack common bundle if present
+        if: ${{ inputs.rebuild != 'true' }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          B="$(ls -1 out/artifacts/common-*.tgz 2>/dev/null | head -n 1 || true)"
+          if [[ -n "${B}" && -f "${B}" ]]; then
+            echo "Found common bundle: ${B}"
+            tar -C out -xzf "${B}"
+            echo "BUNDLE_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "No common bundle found."
+            echo "BUNDLE_OK=0" >> "$GITHUB_ENV"
+          fi
+
+      # Build only when needed
+      - name: Install build deps
+        if: ${{ inputs.rebuild == 'true' || env.BUNDLE_OK != '1' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -29,28 +94,26 @@ jobs:
             flex bison bc libssl-dev libncurses-dev \
             python3 python3-yaml \
             libglib2.0-dev libpixman-1-dev zlib1g-dev \
-            cpio gzip expect
+            expect cpio gzip curl tar xz-utils
 
-      - name: Build all
+      - name: Build all (only if needed)
+        if: ${{ inputs.rebuild == 'true' || env.BUNDLE_OK != '1' }}
         env:
           PLATFORM: ${{ inputs.platform }}
         run: |
           bash scripts/build_all.sh
 
-      # IMPORTANT: start tmate BEFORE QEMU, so the session is available
       - name: Interactive session (tmate)
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: true
 
-      # Run QEMU in the foreground; console is the CI terminal (tmate attached)
       - name: Run QEMU (foreground, interactive console)
         env:
           PLATFORM: ${{ inputs.platform }}
         run: |
           set -euo pipefail
           mkdir -p out
-          # QEMU must be configured to use -nographic -serial mon:stdio inside scripts/run_qemu.sh
           bash -lc "PLATFORM=${PLATFORM} bash scripts/run_qemu.sh" 2>&1 | tee out/qemu.log
 
       - name: Upload qemu log

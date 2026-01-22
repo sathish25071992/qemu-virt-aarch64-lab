@@ -18,22 +18,33 @@ jobs:
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             flex bison bc libssl-dev libncurses-dev \
             python3 python3-yaml expect \
-            libglib2.0-dev libpixman-1-dev zlib1g-dev
+            libglib2.0-dev libpixman-1-dev zlib1g-dev \
+            cpio gzip tar xz-utils
 
-      # One cache for common builds keyed ONLY by versions.yml
+      # Cache common builds keyed by versions + scripts/configs (so cache updates when build logic changes)
       - name: Cache common build
         uses: actions/cache@v4
         with:
           path: |
-            out/cache
+            out/cache/dl
             out/build
-          key: ${{ runner.os }}-common-${{ hashFiles('versions.yml') }}
+          key: ${{ runner.os }}-common-v2-${{ hashFiles('versions.yml', 'scripts/**', 'configs/**') }}
 
       - name: Build common artifacts (qemu + kernel + rootfs)
         run: |
           bash scripts/build_all.sh
 
-      - name: Upload common artifacts
+      - name: Pack common bundle (for reuse in manual workflow)
+        run: |
+          set -euo pipefail
+          mkdir -p out/artifacts
+          tar -C out -czf "out/artifacts/common-${GITHUB_SHA}.tgz" \
+            build/qemu/qemu-system-aarch64 \
+            images/Image \
+            images/rootfs.cpio.gz
+
+      # Used by test-matrix in the same run
+      - name: Upload common artifacts (per-run)
         uses: actions/upload-artifact@v4
         with:
           name: common-artifacts
@@ -41,6 +52,14 @@ jobs:
             out/build/qemu/qemu-system-aarch64
             out/images/Image
             out/images/rootfs.cpio.gz
+
+      # Used by manual workflow (download latest successful run’s bundle)
+      - name: Upload common bundle (downloadable)
+        uses: actions/upload-artifact@v4
+        with:
+          name: common-bundle
+          path: out/artifacts/common-${{ github.sha }}.tgz
+          retention-days: 14
 
   test-matrix:
     runs-on: ubuntu-24.04
@@ -57,7 +76,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Runtime libs for QEMU + expect + yaml
       - name: Install runtime deps
         run: |
           sudo apt-get update
@@ -65,7 +83,7 @@ jobs:
             python3 python3-yaml expect \
             libglib2.0-0 libpixman-1-0 zlib1g
 
-      - name: Download common artifacts
+      - name: Download common artifacts (same run)
         uses: actions/download-artifact@v4
         with:
           name: common-artifacts
@@ -86,5 +104,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: logs-${{ matrix.platform }}
-          path: |
-            out/serial-${{ matrix.platform }}.log
+          path: out/serial-${{ matrix.platform }}.log
