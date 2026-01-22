@@ -164,7 +164,8 @@ jobs:
           chmod +x /tmp/qemu-serial-connect.sh
           echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > /tmp/qemu-tmate.conf
           cp /tmp/qemu-tmate.conf ~/.tmate.conf
-          echo "TMATE_CONFIG=/tmp/qemu-tmate.conf" >> "$GITHUB_ENV"
+          # Fallback: force shell to exec the script when a tmate session starts
+          echo '[[ -t 0 && -z "${TMATE_QEMU_DONE:-}" ]] && export TMATE_QEMU_DONE=1 && exec /tmp/qemu-serial-connect.sh' >> ~/.bashrc
 
       - name: Interactive session (tmate -> QEMU serial)
         uses: mxschmitt/action-tmate@v3
