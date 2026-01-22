@@ -165,6 +165,7 @@ jobs:
 
           start_qemu
           wait_qemu
+          sleep 10
           exec telnet 127.0.0.1 "${SERIAL_TELNET_PORT_VALUE}"
           EOF
 
