@@ -125,12 +125,12 @@ jobs:
           cat > /tmp/qemu-serial-connect.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
-          PLATFORM="${PLATFORM:-}"
-          SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT:-4321}"
-          PIDFILE="${PIDFILE:-out/qemu.pid}"
-          LOGFILE="${LOGFILE:-out/qemu.log}"
+          PLATFORM_VALUE="${PLATFORM}"
+          SERIAL_TELNET_PORT_VALUE="${SERIAL_TELNET_PORT}"
+          PIDFILE="out/qemu.pid"
+          LOGFILE="out/qemu.log"
 
-          if [[ -z "${PLATFORM}" ]]; then
+          if [[ -z "${PLATFORM_VALUE}" ]]; then
             echo "PLATFORM not set" >&2
             exit 1
           fi
@@ -140,8 +140,8 @@ jobs:
               echo "QEMU already running (pid $(cat "${PIDFILE}"))"
               return
             fi
-            echo "Launching QEMU (platform=${PLATFORM}, telnet port=${SERIAL_TELNET_PORT})"
-            bash -lc "PLATFORM=${PLATFORM} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT} bash scripts/run_qemu.sh > ${LOGFILE} 2>&1 & echo \$! > ${PIDFILE}"
+            echo "Launching QEMU (platform=${PLATFORM_VALUE}, telnet port=${SERIAL_TELNET_PORT_VALUE})"
+            bash -lc "PLATFORM=${PLATFORM_VALUE} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT_VALUE} bash scripts/run_qemu.sh > ${LOGFILE} 2>&1 & echo \$! > ${PIDFILE}"
           }
 
           wait_qemu() {
@@ -159,7 +159,7 @@ jobs:
 
           start_qemu
           wait_qemu
-          exec telnet 127.0.0.1 "${SERIAL_TELNET_PORT}"
+          exec telnet 127.0.0.1 "${SERIAL_TELNET_PORT_VALUE}"
           EOF
           chmod +x /tmp/qemu-serial-connect.sh
           echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > /tmp/qemu-tmate.conf
