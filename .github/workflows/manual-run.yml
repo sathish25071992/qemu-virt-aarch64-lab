@@ -122,12 +122,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
+          # Persist env for the upcoming tmate session
+          {
+            echo "PLATFORM=${PLATFORM}"
+            echo "SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT:-4321}"
+          } >> "$GITHUB_ENV"
+
           PORT="${SERIAL_TELNET_PORT:-4321}"
           cat > /tmp/qemu-serial-connect.sh <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          PLATFORM_VALUE="${PLATFORM}"
-          SERIAL_TELNET_PORT_VALUE="${PORT}"
+          PLATFORM_VALUE="${PLATFORM:-__missing__}"
+          SERIAL_TELNET_PORT_VALUE="${PORT:-4321}"
           PIDFILE="out/qemu.pid"
           LOGFILE="out/qemu.log"
 
