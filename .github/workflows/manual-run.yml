@@ -122,18 +122,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          # Persist env for the upcoming tmate session
+          P="${PLATFORM:-}"
+          PORT="${SERIAL_TELNET_PORT:-4321}"
           {
-            echo "PLATFORM=${PLATFORM}"
-            echo "SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT:-4321}"
+            echo "PLATFORM=${P}"
+            echo "SERIAL_TELNET_PORT=${PORT}"
           } >> "$GITHUB_ENV"
 
-          PORT="${SERIAL_TELNET_PORT:-4321}"
           cat > /tmp/qemu-serial-connect.sh <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          PLATFORM_VALUE="${PLATFORM:-__missing__}"
-          SERIAL_TELNET_PORT_VALUE="${PORT:-4321}"
+          PLATFORM_VALUE="${P}"
+          SERIAL_TELNET_PORT_VALUE="${PORT}"
           PIDFILE="out/qemu.pid"
           LOGFILE="out/qemu.log"
 
@@ -148,7 +148,7 @@ jobs:
               return
             fi
             echo "Launching QEMU (platform=${PLATFORM_VALUE}, telnet port=${SERIAL_TELNET_PORT_VALUE})"
-            bash -lc "PLATFORM=${PLATFORM_VALUE} SERIAL_TELNET_PORT=${SERIAL_TELNET_PORT_VALUE} bash scripts/run_qemu.sh > ${LOGFILE} 2>&1 & echo \\$! > ${PIDFILE}"
+            PLATFORM="${PLATFORM_VALUE}" SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT_VALUE}" bash scripts/run_qemu.sh > "${LOGFILE}" 2>&1 & echo \$! > "${PIDFILE}"
           }
 
           wait_qemu() {
@@ -168,6 +168,8 @@ jobs:
           wait_qemu
           exec telnet 127.0.0.1 "${SERIAL_TELNET_PORT_VALUE}"
           EOF
+          # Strip YAML indentation from the heredoc to keep a valid shebang
+          sed -i 's/^          //' /tmp/qemu-serial-connect.sh
           chmod +x /tmp/qemu-serial-connect.sh
           echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > /tmp/qemu-tmate.conf
           cp /tmp/qemu-tmate.conf ~/.tmate.conf
