@@ -16,19 +16,19 @@ log "Linux repo: ${LINUX_REPO} ref: ${LINUX_REF}"
 git_checkout_ref "${LINUX_SRC}" "${LINUX_REPO}" "${LINUX_REF}"
 
 mkdir -p "${LINUX_BUILD}"
-pushd "${LINUX_SRC}" >/dev/null
 
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
-export O="${LINUX_BUILD}"
 
+# Configure once (out-of-tree)
 if [[ ! -f "${LINUX_BUILD}/.config" ]]; then
-  log "Configuring Linux..."
-  make defconfig
-  # Merge our baseline config (simple override approach)
+  log "Configuring Linux (out-of-tree)..."
+  make -C "${LINUX_SRC}" O="${LINUX_BUILD}" defconfig
+
+  # Start from your baseline
   cp -f "${ROOT_DIR}/configs/linux/defconfig" "${LINUX_BUILD}/.config"
 
-  # Ensure must-have options (non-interactive)
+  # Ensure required options (scripts/config lives in source tree)
   "${LINUX_SRC}/scripts/config" --file "${LINUX_BUILD}/.config" \
     -e CONFIG_SERIAL_AMBA_PL011 \
     -e CONFIG_SERIAL_AMBA_PL011_CONSOLE \
@@ -43,14 +43,19 @@ if [[ ! -f "${LINUX_BUILD}/.config" ]]; then
     -e CONFIG_EFI_STUB \
     -d CONFIG_DEBUG_INFO || true
 
-  make olddefconfig
+  make -C "${LINUX_SRC}" O="${LINUX_BUILD}" olddefconfig
 fi
 
-log "Building Linux Image..."
-make -j"$(nproc)" Image
+log "Building Linux Image (out-of-tree)..."
+make -C "${LINUX_SRC}" O="${LINUX_BUILD}" -j"$(nproc)" Image
 
 VMLINUX="${LINUX_BUILD}/arch/arm64/boot/Image"
+if [[ ! -f "${VMLINUX}" ]]; then
+  echo "ERROR: Kernel Image not found at: ${VMLINUX}" >&2
+  echo "Listing possible Image locations:" >&2
+  find "${OUT_DIR}" -type f -name Image -maxdepth 8 -print >&2 || true
+  exit 1
+fi
+
 cp -f "${VMLINUX}" "${IMG_DIR}/Image"
 log "Linux Image -> ${IMG_DIR}/Image"
-
-popd >/dev/null

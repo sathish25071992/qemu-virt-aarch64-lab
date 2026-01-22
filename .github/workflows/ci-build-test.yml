@@ -1,21 +1,12 @@
-name: CI build + boot smoke test (aarch64 virt)
+name: CI build common + boot smoke test matrix (aarch64 virt)
 
 on:
   push:
   pull_request:
 
 jobs:
-  build-test:
+  build-common:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - virt-cortex-a53
-          - virt-cortex-a72
-          - virt-neoverse-n1
-          - virt-cortex-a710
-
     steps:
       - uses: actions/checkout@v4
 
@@ -29,19 +20,60 @@ jobs:
             python3 python3-yaml expect \
             libglib2.0-dev libpixman-1-dev zlib1g-dev
 
-      - name: Cache build
+      # One cache for common builds keyed ONLY by versions.yml
+      - name: Cache common build
         uses: actions/cache@v4
         with:
           path: |
             out/cache
             out/build
-          key: ${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('versions.yml') }}
+          key: ${{ runner.os }}-common-${{ hashFiles('versions.yml') }}
 
-      - name: Build all
-        env:
-          PLATFORM: ${{ matrix.platform }}
+      - name: Build common artifacts (qemu + kernel + rootfs)
         run: |
           bash scripts/build_all.sh
+
+      - name: Upload common artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: common-artifacts
+          path: |
+            out/build/qemu/qemu-system-aarch64
+            out/images/Image
+            out/images/rootfs.cpio.gz
+
+  test-matrix:
+    runs-on: ubuntu-24.04
+    needs: build-common
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - virt-cortex-a53
+          - virt-cortex-a72
+          - virt-neoverse-n1
+          - virt-cortex-a710
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runtime libs for QEMU + expect + yaml
+      - name: Install runtime deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3 python3-yaml expect \
+            libglib2.0-0 libpixman-1-0 zlib1g
+
+      - name: Download common artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: common-artifacts
+          path: out
+
+      - name: Ensure qemu binary executable
+        run: |
+          chmod +x out/build/qemu/qemu-system-aarch64 || true
 
       - name: Smoke test boot
         env:
@@ -55,4 +87,4 @@ jobs:
         with:
           name: logs-${{ matrix.platform }}
           path: |
-            out/serial-*.log
+            out/serial-${{ matrix.platform }}.log
