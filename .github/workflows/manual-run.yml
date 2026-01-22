@@ -122,13 +122,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          cat > /tmp/qemu-serial-connect.sh <<EOF
+          cat > /tmp/qemu-serial-connect.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
-          PLATFORM="${PLATFORM}"
-          SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT}"
-          PIDFILE="out/qemu.pid"
-          LOGFILE="out/qemu.log"
+          PLATFORM="${PLATFORM:-}"
+          SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT:-4321}"
+          PIDFILE="${PIDFILE:-out/qemu.pid}"
+          LOGFILE="${LOGFILE:-out/qemu.log}"
+
+          if [[ -z "${PLATFORM}" ]]; then
+            echo "PLATFORM not set" >&2
+            exit 1
+          fi
 
           start_qemu() {
             if [[ -f "${PIDFILE}" ]] && kill -0 "$(cat "${PIDFILE}")" 2>/dev/null; then
@@ -158,6 +163,7 @@ jobs:
           EOF
           chmod +x /tmp/qemu-serial-connect.sh
           echo 'set -g default-command "/tmp/qemu-serial-connect.sh"' > /tmp/qemu-tmate.conf
+          cp /tmp/qemu-tmate.conf ~/.tmate.conf
           echo "TMATE_CONFIG=/tmp/qemu-tmate.conf" >> "$GITHUB_ENV"
 
       - name: Interactive session (tmate -> QEMU serial)
