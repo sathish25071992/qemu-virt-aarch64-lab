@@ -38,6 +38,8 @@ on:
 jobs:
   run:
     runs-on: ${{ inputs.runner_label || vars.RUNNER_LABEL || 'ubuntu-24.04' }}
+    env:
+      BUNDLE_OK: "0"
     steps:
       - uses: actions/checkout@v4
 
@@ -138,9 +140,7 @@ jobs:
         env:
           SERIAL_TELNET_PORT: ${{ inputs.serial_telnet_port }}
         run: |
-          cat > ~/.tmate.conf <<EOF
-set -g default-command "bash -lc 'telnet 127.0.0.1 ${SERIAL_TELNET_PORT}'"
-EOF
+          echo "set -g default-command \"bash -lc 'telnet 127.0.0.1 ${SERIAL_TELNET_PORT}'\"" > ~/.tmate.conf
 
       - name: Interactive session (tmate -> QEMU serial)
         uses: mxschmitt/action-tmate@v3
