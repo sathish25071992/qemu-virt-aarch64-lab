@@ -31,14 +31,32 @@ mkdir -p "${BUSYBOX_BUILD}" "${ROOTFS_DIR}"
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
 
-FRAG="${ROOT_DIR}/configs/busybox/allnoconfig.fragment"
-if [[ ! -f "${FRAG}" ]]; then
-  echo "ERROR: Missing ${FRAG}" >&2
+CFG_SNAPSHOT="${ROOT_DIR}/configs/busybox/busybox-aarch64-static.config"
+
+log "Configuring BusyBox from frozen .config"
+
+rm -rf "${BUSYBOX_BUILD}"
+mkdir -p "${BUSYBOX_BUILD}"
+
+cp -f "${CFG_SNAPSHOT}" "${BUSYBOX_BUILD}/.config"
+
+# Optional but recommended for future BusyBox versions
+NEWLINES="${BUSYBOX_BUILD}/.kconfig_newlines"
+printf '\n%.0s' {1..5000} > "${NEWLINES}"
+
+make -C "${BUSYBOX_SRC}" \
+  O="${BUSYBOX_BUILD}" \
+  ARCH=arm64 \
+  CROSS_COMPILE=aarch64-linux-gnu- \
+  oldconfig < "${NEWLINES}"
+
+# Enforce static
+if ! grep -q '^CONFIG_STATIC=y' "${BUSYBOX_BUILD}/.config"; then
+  echo "ERROR: BusyBox config is not static" >&2
   exit 1
 fi
 
-log "Configuring BusyBox via KCONFIG_ALLCONFIG + allnoconfig (non-interactive)..."
-make -C "${BUSYBOX_SRC}" O="${BUSYBOX_BUILD}" KCONFIG_ALLCONFIG="${FRAG}" allnoconfig
+export LDFLAGS="-static"
 
 log "Building BusyBox..."
 make -C "${BUSYBOX_SRC}" O="${BUSYBOX_BUILD}" -j"$(nproc)"
