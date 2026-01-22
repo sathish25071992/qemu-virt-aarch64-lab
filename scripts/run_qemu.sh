@@ -11,7 +11,7 @@ MEM_MB="$(yplat "${PLATFORM}" mem_mb)"
 SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT:-}"
 SERIAL_TELNET_HOST="${SERIAL_TELNET_HOST:-127.0.0.1}"
 
-QEMU_BIN="${BUILD_DIR}/qemu/qemu-system-aarch64"
+QEMU_BIN="out/runtime/run-qemu-system-aarch64"
 VMLINUX="${IMG_DIR}/Image"
 INITRAMFS="${IMG_DIR}/rootfs.cpio.gz"
 

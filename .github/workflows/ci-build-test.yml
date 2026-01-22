@@ -49,9 +49,10 @@ jobs:
         with:
           name: common-artifacts
           path: |
-            out/build/qemu/qemu-system-aarch64
+            out/runtime
             out/images/Image
             out/images/rootfs.cpio.gz
+            out/images/firmware/**
 
       # Used by manual workflow (download latest successful run’s bundle)
       - name: Upload common bundle (downloadable)
