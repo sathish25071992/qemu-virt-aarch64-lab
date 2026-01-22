@@ -25,3 +25,9 @@ PLATFORM=virt-cortex-a53 bash scripts/build_all.sh
 
 # run qemu (prints serial to stdout)
 PLATFORM=virt-cortex-a53 bash scripts/run_qemu.sh
+
+## GitHub Actions runners
+- Workflows default to `ubuntu-24.04`.
+- To run on a self-hosted machine, set repository variable `RUNNER_LABEL` to your runner label (for example `self-hosted`); both CI jobs will pick it up.
+- The manual workflow also exposes a `runner_label` input so you can override the runner per dispatch.
+- Ensure the chosen runner has the apt packages listed in the workflows pre-installed or installable with `sudo apt-get`.
