@@ -29,11 +29,6 @@ on:
         required: true
         default: 4321
         type: number
-      tmate_timeout_minutes:
-        description: "How long to keep the tmate session open before auto-continuing"
-        required: true
-        default: 20
-        type: number
 
 jobs:
   run:
@@ -156,7 +151,7 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: true
-        timeout-minutes: ${{ inputs.tmate_timeout_minutes }}
+        timeout-minutes: 60
 
       - name: Stop QEMU
         if: always()
