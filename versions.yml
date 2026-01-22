@@ -3,8 +3,7 @@ qemu:
   ref: "v9.2.0"
 
 linux:
-  repo: https://github.com/torvalds/linux.git
-  ref: "v6.12"
+  version: "6.12"
 
 busybox:
   repo: https://github.com/mirror/busybox.git
