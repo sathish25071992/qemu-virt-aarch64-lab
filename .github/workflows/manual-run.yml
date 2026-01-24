@@ -29,6 +29,12 @@ on:
         required: true
         default: 4321
         type: number
+      boot_chain:
+        description: "Boot chain"
+        required: true
+        default: "linux"
+        type: choice
+        options: ["linux", "atf"]
 
 jobs:
   run:
@@ -119,6 +125,7 @@ jobs:
         env:
           PLATFORM: ${{ inputs.platform }}
           SERIAL_TELNET_PORT: ${{ inputs.serial_telnet_port }}
+          BOOT_CHAIN: ${{ inputs.boot_chain }}
         run: |
           set -euo pipefail
           mkdir -p out
@@ -145,7 +152,7 @@ jobs:
               return
             fi
             echo "Launching QEMU (platform=${PLATFORM_VALUE}, telnet port=${SERIAL_TELNET_PORT_VALUE})"
-            PLATFORM="${PLATFORM_VALUE}" SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT_VALUE}" \
+            PLATFORM="${PLATFORM_VALUE}" BOOT_CHAIN=${BOOT_CHAIN} SERIAL_TELNET_PORT="${SERIAL_TELNET_PORT_VALUE}" \
               bash scripts/run_qemu.sh > "${LOGFILE}" 2>&1 &
             echo $! > "${PIDFILE}"
           }

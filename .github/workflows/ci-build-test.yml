@@ -41,7 +41,11 @@ jobs:
           tar -C out -czf "out/artifacts/common-${GITHUB_SHA}.tgz" \
             runtime/ \
             images/Image \
-            images/rootfs.cpio.gz
+            images/rootfs.cpio.gz \
+            images/u-boot.bin \
+            images/bl1.bin \
+            images/fip.bin \
+            images/flash.bin
 
       # Used by test-matrix in the same run
       - name: Upload common artifacts (per-run)
@@ -53,6 +57,10 @@ jobs:
             out/images/Image
             out/images/rootfs.cpio.gz
             out/images/firmware/**
+            out/images/u-boot.bin
+            out/images/bl1.bin
+            out/images/fip.bin
+            out/images/flash.bin
 
       # Used by manual workflow (download latest successful run’s bundle)
       - name: Upload common bundle (downloadable)
@@ -92,13 +100,20 @@ jobs:
 
       - name: Ensure qemu binary executable
         run: |
-          chmod +x out/build/qemu/qemu-system-aarch64 || true
+          chmod +x out/runtime/run-qemu-system-aarch64 || true
 
       - name: Smoke test boot
         env:
           PLATFORM: ${{ matrix.platform }}
         run: |
           expect -f scripts/smoke_test.expect "${PLATFORM}" | tee out/serial-${PLATFORM}.log
+
+      - name: ATF->U-Boot->Linux smoke boot
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          BOOT_CHAIN: atf
+        run: |
+          expect -f scripts/smoke_test_atf.expect "${PLATFORM}" | tee out/serial-atf-${PLATFORM}.log
 
       - name: Upload logs
         if: always()

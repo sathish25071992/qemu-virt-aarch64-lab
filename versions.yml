@@ -8,3 +8,11 @@ linux:
 busybox:
   repo: https://github.com/mirror/busybox.git
   ref: "1_36_1"
+
+atf:
+  repo: "https://github.com/ARM-software/arm-trusted-firmware.git"
+  ref: "v2.14.0"
+
+uboot:
+  repo: "https://source.denx.de/u-boot/u-boot.git"
+  ref: "v2026.01"

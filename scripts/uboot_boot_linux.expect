@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+set timeout 120
+set kaddr [lindex $argv 0]
+set raddr [lindex $argv 1]
+
+# Wait for U-Boot prompt
+expect {
+  -re "U-Boot" {}
+  timeout { puts "Timeout waiting for U-Boot banner"; exit 2 }
+}
+expect {
+  -re "=> $" {}
+  timeout { puts "Timeout waiting for U-Boot prompt"; exit 2 }
+}
+
+send "setenv bootargs 'console=ttyAMA0 earlycon rdinit=/init panic=-1'\r"
+expect -re "=> $"
+
+send "booti $kaddr $raddr \\$\\{fdtcontroladdr\\}\r"
+# now Linux should boot; you can wait for "Booted initramfs" etc.
+interact

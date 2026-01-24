@@ -1,0 +1,49 @@
+#!/usr/bin/expect -f
+# Usage: expect -f scripts/smoke_test_atf.expect <platform>
+
+set timeout 180
+set platform [lindex $argv 0]
+if {$platform eq ""} { puts "missing platform"; exit 2 }
+
+# Addresses must match run_qemu.sh (or keep as env overrides)
+set kaddr "0x40200000"
+set raddr "0x44000000"
+
+# Compute initrd size (hex) from host file
+set initrd_path "out/images/rootfs.cpio.gz"
+set sz_dec [exec sh -lc "stat -c%s $initrd_path"]
+set sz_hex [exec sh -lc "printf 0x%x $sz_dec"]
+
+# Launch QEMU (stdio)
+set cmd "bash -lc {PLATFORM=$platform BOOT_CHAIN=atf SERIAL_TELNET_PORT= bash scripts/run_qemu.sh}"
+spawn -noecho sh -lc $cmd
+
+# TF-A / U-Boot banners
+expect {
+  -re "NOTICE:.*TF-A" {}
+  -re "U-Boot" {}
+  timeout { puts "Timeout waiting for TF-A/U-Boot"; exit 3 }
+}
+
+# Wait for U-Boot prompt
+expect {
+  -re "=> $" {}
+  timeout { puts "Timeout waiting for U-Boot prompt"; exit 4 }
+}
+
+send "setenv bootargs 'console=ttyAMA0 earlycon rdinit=/init panic=-1'\r"
+expect -re "=> $"
+
+# booti kernel initrd:size fdt
+send "booti $kaddr $raddr:$sz_hex \\$\\{fdtcontroladdr\\}\r"
+
+# Wait for Linux boot marker (adjust to your init output)
+expect {
+  -re "Booted initramfs" { puts "ATF chain boot OK"; }
+  -re "Kernel panic" { puts "Kernel panic"; exit 5 }
+  timeout { puts "Timeout waiting for Linux userspace"; exit 6 }
+}
+
+# Quit QEMU by sending Ctrl-a x (works if QEMU uses stdio+monitor);
+# if not, just exit and let job timeout.
+# send "\001x"

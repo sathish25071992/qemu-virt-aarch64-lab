@@ -25,6 +25,7 @@ PLATFORM=virt-cortex-a53 bash scripts/build_all.sh
 
 # run qemu (prints serial to stdout)
 PLATFORM=virt-cortex-a53 bash scripts/run_qemu.sh
+```
 
 ## GitHub Actions runners
 - Workflows default to `ubuntu-24.04`.
