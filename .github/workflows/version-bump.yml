@@ -1,0 +1,60 @@
+name: Version bump bot
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # daily 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-yaml git
+
+      - name: Check upstream releases and update versions.yml
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Policy toggles
+          ALLOW_MAJOR_BUMPS: "false"
+          ALLOW_RC: "false"
+        run: |
+          python3 scripts/check_updates.py
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- versions.yml; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BR="chore/version-bumps-$(date +%Y%m%d)"
+          git checkout -b "$BR"
+          git add versions.yml out/version-updates.json
+          git commit -m "chore: bump component versions"
+          git push -u origin "$BR"
+
+          # Create PR (GitHub CLI via API-free approach using curl)
+          TITLE="chore: bump component versions"
+          BODY="Automated version updates.\n\nSee out/version-updates.json for details."
+          # Use gh if you prefer; curl is fine too.
+          sudo apt-get update && sudo apt-get install -y gh
+          gh pr create --title "$TITLE" --body "$BODY" --head "$BR" --base "${GITHUB_REF_NAME}"
